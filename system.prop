@@ -1,0 +1,67 @@
+###
+# begin product/etc/build.prop
+###
+
+# begin common build properties
+ro.product.model=SM-M325F
+# end common build properties
+
+# begin PRODUCT_PRODUCT_PROPERTIES
+# end PRODUCT_PRODUCT_PROPERTIES
+###
+# end product/etc/build.prop
+###
+
+###
+#-#
+###
+
+###
+# begin vendor/build.prop
+###
+
+# begin common build properties
+
+###
+# begin vendor/odm/etc/build.prop
+###
+
+# begin common build properties
+ro.product.odm.model=SM-M325F
+# end common build properties
+
+###
+# end vendor/odm/etc/build.prop
+###
+
+###
+#-#
+###
+
+###
+# begin system/system/build.prop
+###
+
+# begin common build properties
+ro.product.system.model=SM-M325F
+# end build properties
+
+###
+# end system/system/build.prop
+###
+
+###
+#-#
+###
+
+###
+# begin system_ext/etc/build.prop
+###
+
+# begin common build properties
+ro.product.system_ext.model=SM-M325F
+# end common build properties
+
+###
+# end system_ext/etc/build.prop
+###
