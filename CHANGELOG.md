@@ -1,3 +1,7 @@
+## [spay-v5.6.43] - 2026-07-01
+- 🆕 Samsung Pay Mini updated to v5.6.43
+- APK sourced directly from Samsung Galaxy Store (India/INS)
+
 # Changelog
 
 ## [spay-v5.6.43] - 2026-07-01

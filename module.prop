@@ -1,7 +1,7 @@
 id=samsungspay
 name=Samsung Wallet Fix
-version=v1.10
-versionCode=110
+version=spay-v5.6.43
+versionCode=564300232
 author=Abhishek Babu
 description=Targeted Zygisk spoofing to run Samsung Pay Mini on rooted Samsung devices.
 updateJson=https://raw.githubusercontent.com/TheBizarreAbhishek/Samsung-Wallet-Fix/main/update.json
