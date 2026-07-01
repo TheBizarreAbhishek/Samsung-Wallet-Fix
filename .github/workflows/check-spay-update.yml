@@ -1,0 +1,175 @@
+name: 🔄 Samsung Pay Mini Update Checker
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # Daily at 3:00 AM UTC (8:30 AM IST)
+  workflow_dispatch:        # Manual trigger anytime
+
+permissions:
+  contents: write           # Needed to create releases and push commits
+
+jobs:
+  check-and-release:
+    name: Check SPay Mini Version
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout repo ──────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ── 2. Setup Python ───────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: pip install requests -q
+
+      # ── 3. Query Samsung API ──────────────────────────────────────────────
+      - name: Fetch latest Samsung Pay Mini version from Samsung servers
+        id: samsung
+        run: python3 scripts/fetch_apk.py
+
+      # ── 4. Check if this version already released ─────────────────────────
+      - name: Check if release already exists
+        id: check_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION_NAME: ${{ steps.samsung.outputs.version_name }}
+        run: |
+          TAG="spay-v${VERSION_NAME}"
+          echo "Checking for existing release tag: $TAG"
+          if gh release view "$TAG" --repo "${{ github.repository }}" > /dev/null 2>&1; then
+            echo "Release $TAG already exists. No update needed."
+            echo "is_new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New version found! Will create release: $TAG"
+            echo "is_new=true" >> "$GITHUB_OUTPUT"
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── 5. Download APK (only if new) ─────────────────────────────────────
+      - name: Download Samsung Pay Mini APK
+        if: steps.check_release.outputs.is_new == 'true'
+        env:
+          VERSION_NAME: ${{ steps.samsung.outputs.version_name }}
+          DOWNLOAD_URL: ${{ steps.samsung.outputs.download_url }}
+          APK_FILENAME: ${{ steps.samsung.outputs.apk_filename }}
+        run: |
+          echo "Downloading APK: $APK_FILENAME"
+          curl -L "$DOWNLOAD_URL" -o "$APK_FILENAME" --progress-bar
+          SIZE=$(du -sh "$APK_FILENAME" | cut -f1)
+          echo "Downloaded: $APK_FILENAME ($SIZE)"
+
+      # ── 6. Update update.json & module.prop ──────────────────────────────
+      - name: Update module metadata
+        if: steps.check_release.outputs.is_new == 'true'
+        env:
+          VERSION_NAME: ${{ steps.samsung.outputs.version_name }}
+          VERSION_CODE: ${{ steps.samsung.outputs.version_code }}
+          TAG: ${{ steps.check_release.outputs.tag }}
+        run: |
+          MODULE_ZIP_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/Samsung.Wallet.Fix.zip"
+          CHANGELOG_URL="https://raw.githubusercontent.com/${{ github.repository }}/main/CHANGELOG.md"
+
+          # Write update.json (used by root managers for update notifications)
+          cat > update.json << EOF
+          {
+            "version": "${TAG}",
+            "versionCode": ${VERSION_CODE},
+            "zipUrl": "${MODULE_ZIP_URL}",
+            "changelog": "${CHANGELOG_URL}"
+          }
+          EOF
+
+          # Update module.prop version to match SPay Mini version
+          sed -i "s/^version=.*/version=${TAG}/" module.prop
+          sed -i "s/^versionCode=.*/versionCode=${VERSION_CODE}/" module.prop
+
+          echo "Updated module.prop and update.json:"
+          cat module.prop
+          cat update.json
+
+      # ── 7. Package updated module zip ─────────────────────────────────────
+      - name: Build updated module zip
+        if: steps.check_release.outputs.is_new == 'true'
+        env:
+          TAG: ${{ steps.check_release.outputs.tag }}
+        run: |
+          zip -r Samsung.Wallet.Fix.zip . \
+            -x "*.git*" \
+            -x "*.github*" \
+            -x "scripts/*" \
+            -x "*.py" \
+            -x "*.apk" \
+            -x "*.zip" \
+            -x "*.md"
+          echo "Module zip built: $(du -sh Samsung.Wallet.Fix.zip)"
+
+      # ── 8. Update CHANGELOG.md ─────────────────────────────────────────────
+      - name: Update CHANGELOG
+        if: steps.check_release.outputs.is_new == 'true'
+        env:
+          VERSION_NAME: ${{ steps.samsung.outputs.version_name }}
+          TAG: ${{ steps.check_release.outputs.tag }}
+        run: |
+          DATE=$(date -u +"%Y-%m-%d")
+          NEW_ENTRY="## [${TAG}] - ${DATE}\n- 🆕 Samsung Pay Mini updated to v${VERSION_NAME}\n- APK sourced directly from Samsung Galaxy Store (India/INS)\n"
+          
+          if [ -f CHANGELOG.md ]; then
+            echo -e "${NEW_ENTRY}\n$(cat CHANGELOG.md)" > CHANGELOG.md
+          else
+            echo -e "# Changelog\n\n${NEW_ENTRY}" > CHANGELOG.md
+          fi
+
+      # ── 9. Commit updated files ───────────────────────────────────────────
+      - name: Commit metadata changes
+        if: steps.check_release.outputs.is_new == 'true'
+        env:
+          TAG: ${{ steps.check_release.outputs.tag }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add module.prop update.json CHANGELOG.md
+          git commit -m "chore: bump to ${TAG} [skip ci]"
+          git push
+
+      # ── 10. Create GitHub Release ─────────────────────────────────────────
+      - name: Create GitHub Release
+        if: steps.check_release.outputs.is_new == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION_NAME: ${{ steps.samsung.outputs.version_name }}
+          VERSION_CODE: ${{ steps.samsung.outputs.version_code }}
+          APK_FILENAME: ${{ steps.samsung.outputs.apk_filename }}
+          TAG: ${{ steps.check_release.outputs.tag }}
+        run: |
+          gh release create "${TAG}" \
+            --repo "${{ github.repository }}" \
+            --title "Samsung Pay Mini v${VERSION_NAME}" \
+            --notes "## 📱 Samsung Pay Mini Update
+
+          **Version:** \`${VERSION_NAME}\` (code: \`${VERSION_CODE}\`)
+          **Source:** Samsung Galaxy Store (India - INS region)
+          **Device Profile:** Galaxy M32 (\`SM-M325F\`)
+
+          ### How to install
+          1. Flash \`Samsung.Wallet.Fix.zip\` via your root manager (Magisk/KernelSU/APatch)
+          2. During installation press **Volume Up** to auto-install the APK
+          3. **OR** manually install \`${APK_FILENAME}\` directly
+
+          > ⚠️ Make sure Zygisk is enabled before flashing the module." \
+            "${APK_FILENAME}" \
+            "Samsung.Wallet.Fix.zip"
+
+      # ── 11. No update summary ─────────────────────────────────────────────
+      - name: No update summary
+        if: steps.check_release.outputs.is_new == 'false'
+        env:
+          VERSION_NAME: ${{ steps.samsung.outputs.version_name }}
+        run: |
+          echo "✅ Samsung Pay Mini v${VERSION_NAME} is already the latest release. Nothing to do."

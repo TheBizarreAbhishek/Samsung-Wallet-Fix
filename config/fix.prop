@@ -1,0 +1,10 @@
+MANUFACTURER=samsung
+MODEL=SM-M325F
+BRAND=samsung
+PRODUCT=SM-M325F
+DEVICE=SM-M325F
+spoofBuild=1
+spoofProps=1
+spoofProvider=0
+spoofSignature=0
+verboseLogs=0

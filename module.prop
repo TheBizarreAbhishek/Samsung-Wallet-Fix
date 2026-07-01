@@ -1,6 +1,7 @@
-id=SamsungWallet_Fix
+id=samsungspay
 name=Samsung Wallet Fix
-version=v1.00
-versionCode=100
+version=v1.10
+versionCode=110
 author=Abhishek Babu
-description=Spoofed your device props to Galaxy M32 to support Samsung Wallet [mini]
+description=Targeted Zygisk spoofing to run Samsung Pay Mini on rooted Samsung devices.
+updateJson=https://raw.githubusercontent.com/TheBizarreAbhishek/Samsung-Wallet-Fix/main/update.json
